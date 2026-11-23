@@ -1,7 +1,7 @@
 # Questions
 
 Each question starts with something the school administrator asks an agent to do. The agent will try. Your gateway
-decides.
+decides!
 
 **The person:** the local school administrator. They cover all twelve local schools and have full access
 themselves. They are not technical, and every request sounds reasonable.
