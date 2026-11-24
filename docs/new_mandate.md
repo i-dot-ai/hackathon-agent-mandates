@@ -18,6 +18,7 @@ Choose the place by what the field limits.
 
 ```bash
 uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem -o gateway/state/clearance.jwt \
+  --clearance 4 \
   --claims '{"clearance": 2}' \
   --scope '[{"server": "pupil-data", "tools": ["search"], "constraints": {"urn": ["SCH01"]},
              "columns": ["URN", "AcademicYear"]}]'
@@ -25,6 +26,7 @@ uv run python -m gateway.cli decode gateway/state/clearance.jwt   # check it is 
 ```
 
 - `clearance` and `columns` are only examples. The names and what they mean are yours.
+- `--clearance` is required. A `clearance` key inside `--claims` replaces it, which is what the command above does. `--role safeguarding-lead` is what lets a level 4 result through.
 - `--claims` refuses a name the mandate already uses (`scope`, `exp`, `cnf` and so on), so it cannot quietly replace
   one.
 - Do not put a new field inside `constraints`. Every key there is treated as a request argument that must be present

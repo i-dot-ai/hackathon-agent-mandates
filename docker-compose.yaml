@@ -50,9 +50,14 @@ services:
       - "8082:8082"
     volumes:
       - ./gateway/state:/app/gateway/state
+      - ./mcp_server/data/synthetic/synthetic_manifest.json:/app/manifest.json:ro
     environment:
       - MCP_SERVERS=pupil-data=http://backend:8080/mcp/
       - GATEWAY_STATE_DIR=/app/gateway/state
+      - CLASSIFICATION_MANIFEST=/app/manifest.json
+      # /demo/* mints, signs and revokes mandates with no authentication. Off unless you ask for the local
+      # walkthrough with `GATEWAY_DEMO=1 make run`. Never set it on a deployed gateway.
+      - GATEWAY_DEMO=${GATEWAY_DEMO:-0}
       - LITELLM_KEY=${LITELLM_KEY:-}
       - LITELLM_BASE_URL=${LITELLM_BASE_URL:-}
     healthcheck:
@@ -65,6 +70,39 @@ services:
       - agent-mandate-hack-network
     depends_on:
       backend:
+        condition: service_healthy
+
+  board:
+    build:
+      context: .
+      dockerfile: ./local_view/Dockerfile
+    container_name: board
+    # this machine only: the board holds the issuer key and eval pack and calls with your clearance 4 mandates.
+    # Never deploy it.
+    ports:
+      - "127.0.0.1:8090:8090"
+    volumes:
+      - ./gateway/state:/app/gateway/state
+      - ./eval_pack:/app/eval_pack
+      - ./mcp_server/data/synthetic/synthetic_manifest.json:/app/manifest.json:ro
+    environment:
+      - BOARD_HOST=0.0.0.0
+      - BOARD_PORT=8090
+      - GATEWAY_URL=http://gateway:8082
+      - MCP_URL=http://backend:8080
+      - CLASSIFICATION_MANIFEST=/app/manifest.json
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8090/" ]
+      interval: 3s
+      timeout: 2s
+      retries: 3
+      start_period: 3s
+    networks:
+      - agent-mandate-hack-network
+    depends_on:
+      backend:
+        condition: service_healthy
+      gateway:
         condition: service_healthy
 
 networks:

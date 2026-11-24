@@ -60,7 +60,7 @@ What we want at the end is what you found out: where agent mandates hold and whe
 3. Open **[questions/README.md](questions/README.md)**. It lists the questions, 0 to 16. Each starts with something the administrator asks.
 4. Read [gateway/lib/gateway_verify.py](gateway/lib/gateway_verify.py). It walks through the current verification process.
 
-Ports: MCP server `:8080`, gateway `:8082`, demo UI `localhost:8081/demo` (a walkthrough of issuing a mandate and making a call - feel free to extend, e.g - for human in the loop escalation.).
+Ports: MCP server `:8080`, gateway `:8082`, question board `localhost:8090`, demo UI `localhost:8081/demo` (a walkthrough of issuing a mandate and making a call - feel free to extend, e.g - for human in the loop escalation.). `make hack` and `make run` start all four. The demo UI and the board's issuer and trust panels use the gateway's `/demo/*` routes. Those routes mint, sign and revoke mandates with no authentication, so they are off unless you start with `GATEWAY_DEMO=1 make run`. Never set `GATEWAY_DEMO` on a deployed gateway.
 `make test` and `make lint` run the tests and ruff. The data sources are listed in
 [mcp_server/data/synthetic/synthetic_manifest.json](mcp_server/data/synthetic/synthetic_manifest.json).
 
@@ -139,6 +139,8 @@ The gateway sees each tool as `pupil-data.<tool>`.
 | `exp` | 3 days from issue (`--ttl`) | The `expired` case uses a copy that expired 2 minutes ago |
 | `cnf.jwk` | public key of `eval_pack/agent.pem` | Only that key can sign requests |
 | `principal` / `org` / `purpose` | `eval:runner` / `org:hackathon` / `eval set` | Who it was issued to and why |
+| `clearance` | `4` | Required. A result above it is refused |
+| `role` | `safeguarding-lead` | Required as well when the result is level 4. `make eval_build` puts it on every eval mandate |
 
 Question 5 also uses `eval_pack/two_schools.jwt`, the same mandate with `search` scoped to `SCH01` and `SCH02` as
 two separate entries.
@@ -174,7 +176,7 @@ To change one, issue a new mandate for the same key and revoke the old one. For 
 
 ```bash
 # 1. Issue the new mandate. Note the status idx it prints, which you need to revoke this mandate later
-uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem --ttl 3600 -o gateway/state/sch02.jwt \
+uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem --ttl 3600 --clearance 4 --role safeguarding-lead -o gateway/state/sch02.jwt \
   --scope '[{"server": "pupil-data", "tools": ["search"], "constraints": {"urn": ["SCH02"]}}]' \
   --purpose "Pupil-data lookups for school SCH02" --org school:SCH02
 # wrote mandate (status idx 3) to gateway/state/sch02.jwt
@@ -205,7 +207,7 @@ Locally, `make hack` creates a key (`gateway/state/agent.pem`) and a starting ma
 To limit the key further, issue a narrower mandate, e.g. `search` only for 10 minutes:
 
 ```bash
-uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem --ttl 600 -o narrow.jwt \
+uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem --ttl 600 --clearance 4 --role safeguarding-lead -o narrow.jwt \
   --scope '[{"server": "pupil-data", "tools": ["search"], "constraints": {"urn": ["SCH01"]}}]'
 ```
 
@@ -216,7 +218,7 @@ mandate back. Never copy `issuer_key.pem`.
 
 ```bash
 uv run python -m gateway.cli keygen -o key.pem > public_key.jwk               # you: send public_key.jwk
-uv run python -m gateway.cli issue --agent-key public_key.jwk -o mandate.jwt  # them: send mandate.jwt back
+uv run python -m gateway.cli issue --agent-key public_key.jwk --clearance 4 --role safeguarding-lead -o mandate.jwt  # them: send mandate.jwt back
 ```
 
 Then call as below with `--mandate mandate.jwt --agent-key key.pem --url <their gateway>`.

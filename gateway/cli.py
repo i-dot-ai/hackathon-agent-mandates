@@ -5,7 +5,7 @@ never do, and until when. The gateway checks the note on every call. The issuer 
 
     python -m gateway.cli init                                      # issuer: one-off setup
     python -m gateway.cli keygen -o agent.pem                       # agent: make a key, send the printed JWK
-    python -m gateway.cli issue --agent-key team.jwk -o mandate.jwt # issuer: write a mandate for that key
+    python -m gateway.cli issue --agent-key team.jwk --clearance 4 --role safeguarding-lead -o mandate.jwt
     python -m gateway.cli discover --url http://localhost:8082      # agent: see what a gateway offers
     python -m gateway.cli revoke --idx 0                            # issuer: cancel mandate 0
     python -m gateway.cli decode mandate.jwt                        # anyone: read what a mandate says
@@ -180,7 +180,7 @@ def cmd_issue(a) -> None:
         purpose=a.purpose,
         principal=a.principal,
         org=a.org,
-        extra=json.loads(a.claims),
+        extra={"clearance": a.clearance, **({"role": a.role} if a.role else {}), **json.loads(a.claims)},
     )
     if a.out:
         a.out.write_text(token)
@@ -258,6 +258,17 @@ def main(argv: list[str] | None = None) -> None:
 
     s = sub.add_parser("issue", help="write a mandate for an agent key")
     s.add_argument("--agent-key", type=Path, required=True, help="the agent's public key (JWK or PEM)")
+    s.add_argument(
+        "--clearance",
+        type=int,
+        choices=[1, 2, 3, 4],
+        required=True,
+        help="PII level the agent may receive: 1 public to 4 special category (required)",
+    )
+    s.add_argument(
+        "--role",
+        help="a role the person holds, signed in for the agent; level 4 also needs a role the gateway lists",
+    )
     s.add_argument("--scope", default=json.dumps(DEFAULT_SCOPE), help="what the agent may do (JSON)")
     s.add_argument("--deny", default=json.dumps(DEFAULT_DENY), help="what it must never do (JSON)")
     s.add_argument("--ttl", type=int, default=7200, help="seconds until it expires")

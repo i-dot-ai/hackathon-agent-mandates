@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mandate gateway · local board</title>
+<style>
+  :root {
+    --bg: #f3f1ec;
+    --card: #ffffff;
+    --ink: #17181c;
+    --ink-2: #3f424b;
+    --muted: #6b6e78;
+    --line: #e2dfd7;
+    --soft: #f7f5f1;
+    --top: #15171c;
+    --top-ink: #f3f1ec;
+    --top-muted: #a5a8b2;
+    --allow: #19764a; --allow-bg: #e2f2e9;
+    --deny: #b42318; --deny-bg: #fde7e4;
+    --hold: #9a5a06; --hold-bg: #fcefd6;
+    --info: #2d5cae; --info-bg: #e7eefa;
+    --l1: #2d6a44; --l1-bg: #e3f0e7;
+    --l2: #285393; --l2-bg: #e2ebf8;
+    --l3: #875000; --l3-bg: #fbecd0;
+    --l4: #9a1b1b; --l4-bg: #fadcd8;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(20, 20, 30, .04), 0 6px 18px rgba(20, 20, 30, .05);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px; }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; font-weight: 650; }
+  h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12.5px; }
+  .err { color: var(--deny); background: var(--deny-bg); border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
+
+  /* header */
+  .top { background: var(--top); color: var(--top-ink); padding: 26px 0 18px; }
+  .top .wrap { display: grid; gap: 16px; }
+  .brand { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+  .brand h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; font-weight: 650; }
+  .brand p { color: var(--top-muted); max-width: 70ch; margin-top: 4px; }
+  .actions { display: flex; gap: 8px; }
+  button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 7px 14px; }
+  button:hover { border-color: var(--ink-2); }
+  button:disabled { opacity: .6; cursor: progress; }
+  .top button { background: transparent; color: var(--top-ink); border-color: #3a3d46; }
+  .top button:hover { border-color: var(--top-ink); }
+  .top button.primary { background: var(--top-ink); color: var(--top); border-color: var(--top-ink); font-weight: 600; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: inline-flex; gap: 8px; align-items: center; border: 1px solid #30333b; border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--top-muted); }
+  .chip b { color: var(--top-ink); font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--top-muted); }
+  .dot.on { background: #3ccf86; box-shadow: 0 0 0 3px rgba(60, 207, 134, .18); }
+  .dot.off { background: #ff6b5e; box-shadow: 0 0 0 3px rgba(255, 107, 94, .18); }
+
+  main.wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding-top: 20px; padding-bottom: 48px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px 20px; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  /* tiles */
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px; }
+  .tile .big { font-size: 30px; font-weight: 650; letter-spacing: -.02em; line-height: 1.15; margin-top: 4px; }
+  .tile .big.ok { color: var(--allow); }
+  .tile .big.bad { color: var(--deny); }
+  .tile .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  /* pipeline */
+  .flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px 22px; }
+  .stage { position: relative; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px 12px 10px; display: grid; gap: 6px; align-content: start; }
+  .stage + .stage::before { content: "→"; position: absolute; left: -18px; top: 16px; color: var(--muted); font-size: 15px; }
+  .stage .num { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; display: grid; place-items: center; font-weight: 650; }
+  .stage .title { font-weight: 650; }
+  .stage .text { color: var(--ink-2); font-size: 13px; line-height: 1.4; }
+  .stage .codes { display: flex; flex-wrap: wrap; gap: 4px; }
+  .stage .here { font-size: 12px; color: var(--muted); }
+  .code { font-family: var(--mono); font-size: 11.5px; border-radius: 6px; padding: 1px 6px; background: var(--deny-bg); color: var(--deny); white-space: nowrap; }
+  .code.allow { background: var(--allow-bg); color: var(--allow); }
+  .code.hold { background: var(--hold-bg); color: var(--hold); }
+  .code .x { font-weight: 700; margin-left: 4px; }
+  .code.quiet { opacity: .55; }
+
+  /* questions */
+  .tabs { display: flex; gap: 4px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+  .tabs button { border: 0; background: transparent; padding: 5px 12px; border-radius: 8px; color: var(--ink-2); }
+  .tabs button.on { background: var(--card); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); color: var(--ink); font-weight: 600; }
+  .tools-row { display: flex; gap: 8px; align-items: center; }
+  .qlist { display: grid; gap: 10px; }
+  .q { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+  .q.solved { border-left: 4px solid var(--allow); }
+  .q.answered { border-left: 4px solid var(--info); }
+  .q.open { border-left: 4px solid var(--hold); }
+  .q-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 8px; }
+  .q-toggle { flex: 1; display: flex; align-items: center; gap: 12px; border: 0; background: transparent; text-align: left; padding: 4px 6px; border-radius: 8px; }
+  .q-toggle:hover { background: var(--soft); }
+  .q-toggle .chev { margin-left: auto; color: var(--muted); transition: transform .15s; }
+  .q-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .q-num { width: 30px; height: 30px; flex: none; border-radius: 9px; background: var(--soft); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 650; }
+  .state { flex: none; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
+  .state.solved { background: var(--allow-bg); color: var(--allow); }
+  .state.answered { background: var(--info-bg); color: var(--info); }
+  .state.open { background: var(--hold-bg); color: var(--hold); }
+  .q-ask { font-size: 15px; }
+  .q-ask::before { content: "“"; color: var(--muted); }
+  .q-ask::after { content: "”"; color: var(--muted); }
+  .tally { flex: none; font-family: var(--mono); font-size: 13px; font-weight: 600; border-radius: 8px; padding: 3px 9px; background: var(--soft); color: var(--ink-2); }
+  .tally.ok { background: var(--allow-bg); color: var(--allow); }
+  .tally.bad { background: var(--deny-bg); color: var(--deny); }
+  button.run { flex: none; font-weight: 600; }
+  .q-body { border-top: 1px solid var(--line); padding: 14px 16px 16px; background: #fcfbf9; }
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 14px; }
+  .facts p { color: var(--ink-2); font-size: 14px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 650; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  td { vertical-align: top; padding: 10px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  table.cases { background: var(--card); border: 1px solid var(--line); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+  table.cases col.c-call { width: 20%; }
+  table.cases col.c-match { width: 36%; }
+  table.cases col.c-labels { width: 20%; }
+  table.cases col.c-expect { width: 10%; }
+  table.cases col.c-run { width: 14%; }
+  tr.pass td:last-child { background: linear-gradient(90deg, transparent, var(--allow-bg)); }
+  tr.fail td:last-child { background: linear-gradient(90deg, transparent, var(--deny-bg)); }
+  .case-name { font-weight: 600; margin-bottom: 6px; }
+  .mandate-chip { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--ink-2); margin-bottom: 6px; }
+  .tool code { font-weight: 650; font-size: 13px; }
+  .args { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .arg { font-family: var(--mono); font-size: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; word-break: break-all; }
+  .arg .k { color: var(--muted); margin-right: 4px; }
+  .arg .k::after { content: "="; }
+
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .steps li { display: grid; grid-template-columns: 18px 1fr; gap: 6px; font-size: 13px; line-height: 1.45; padding: 2px 6px; border-radius: 6px; }
+  .steps li > span:last-child { word-break: break-word; }
+  .steps .ic { font-weight: 700; text-align: center; }
+  .steps .pass .ic { color: var(--allow); }
+  .steps .fail { background: var(--deny-bg); }
+  .steps .fail .ic, .steps .fail .res { color: var(--deny); font-weight: 600; }
+  .steps .hold { background: var(--hold-bg); }
+  .steps .hold .ic, .steps .hold .res { color: var(--hold); font-weight: 600; }
+  .steps .allow { background: var(--allow-bg); }
+  .steps .allow .ic, .steps .allow .res { color: var(--allow); font-weight: 600; }
+  .steps .unread { color: var(--muted); }
+  .steps code { font-size: 11.5px; background: var(--soft); border-radius: 4px; padding: 0 4px; }
+  .steps .vs { color: var(--muted); font-size: 12px; }
+  .steps .res::before { content: "→ "; color: var(--muted); font-weight: 400; }
+
+  .lv { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 8px 1px 2px; font-size: 12px; white-space: nowrap; margin: 0 4px 4px 0; }
+  .lv .n { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; }
+  .lv.l0 { background: var(--soft); color: var(--muted); } .lv.l0 .n { background: var(--muted); }
+  .lv.l1 { background: var(--l1-bg); color: var(--l1); } .lv.l1 .n { background: var(--l1); }
+  .lv.l2 { background: var(--l2-bg); color: var(--l2); } .lv.l2 .n { background: var(--l2); }
+  .lv.l3 { background: var(--l3-bg); color: var(--l3); } .lv.l3 .n { background: var(--l3); }
+  .lv.l4 { background: var(--l4-bg); color: var(--l4); } .lv.l4 .n { background: var(--l4); }
+  .lv.none { background: var(--deny-bg); color: var(--deny); padding: 1px 8px; font-weight: 600; }
+  .lv.strong { font-weight: 700; outline: 1.5px solid currentColor; }
+  .lv-top { margin-bottom: 2px; }
+  .decided { font-size: 12.5px; color: var(--ink-2); margin-bottom: 6px; }
+  .pills { display: flex; flex-wrap: wrap; }
+  .src { font-size: 11.5px; color: var(--muted); margin-top: 2px; font-style: italic; }
+
+  .badge { display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: .03em; border-radius: 6px; padding: 2px 8px; background: var(--soft); color: var(--ink-2); }
+  .badge.ALLOW { background: var(--allow); color: #fff; }
+  .badge.DENY { background: var(--deny); color: #fff; }
+  .badge.STEP_UP { background: var(--hold); color: #fff; }
+  .verdict { display: inline-block; font-weight: 700; font-size: 11px; border-radius: 6px; padding: 2px 7px; margin-right: 6px; }
+  .verdict.pass { background: var(--allow-bg); color: var(--allow); }
+  .verdict.fail { background: var(--deny-bg); color: var(--deny); }
+  .run-top { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .detail { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; }
+  .detail.warn-text { color: var(--hold); }
+  .cell { margin-top: 6px; padding: 4px 8px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; display: inline-block; }
+  .notice { font-size: 12.5px; margin-top: 8px; background: var(--info-bg); border-left: 3px solid var(--info); border-radius: 6px; padding: 6px 8px; color: var(--ink-2); }
+  .notice b { display: block; color: var(--info); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .today { font-size: 13px; color: var(--ink-2); }
+
+  /* lower panels */
+  .two { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; }
+  .four { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .ltable td { padding: 8px 10px 8px 0; }
+  .ltable .tname { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .foot { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .kv th { width: 130px; text-transform: none; letter-spacing: 0; font-size: 13px; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .kv td { padding: 8px 0; word-break: break-all; }
+  .tag { display: inline-block; font-size: 11.5px; border-radius: 999px; padding: 0 8px; border: 1px solid var(--line); color: var(--ink-2); margin: 0 4px 4px 0; }
+  .tag.private { color: var(--deny); border-color: #f2b8b2; background: var(--deny-bg); }
+  .tag.held { color: var(--hold); border-color: #ecd09a; background: var(--hold-bg); }
+  .scroll-x { overflow-x: auto; }
+  .grant { font-family: var(--mono); font-size: 12px; margin-bottom: 3px; word-break: break-word; }
+  .file { word-break: break-all; }
+  .grant .t { font-weight: 650; }
+  .grant .c { color: var(--muted); }
+  .exp-past { color: var(--deny); font-weight: 600; }
+
+  @media (max-width: 1100px) {
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .two, .four, .facts { grid-template-columns: minmax(0, 1fr); }
+    table.cases, table.cases tbody, table.cases tr, table.cases td { display: block; width: 100%; }
+    table.cases thead, table.cases colgroup { display: none; }
+    table.cases tr { border-bottom: 1px solid var(--line); }
+    table.cases td { border: 0; padding: 6px 12px; }
+    table.cases td::before { content: attr(data-label); display: block; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div>
+        <h1>Mandate gateway</h1>
+        <p>Local board for the hackathon stack. Every question, every call, what each argument is matched against, and the sensitivity label that decides.</p>
+      </div>
+      <div class="actions">
+        <button type="button" id="refresh">Refresh</button>
+        <button type="button" class="primary" id="run-all">Run all questions</button>
+      </div>
+    </div>
+    <div class="chips" id="chips"><span class="chip">Loading…</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="tiles" id="tiles"></section>
+
+  <section class="card">
+    <div class="card-head"><h2>How a call is decided</h2><span class="muted small" id="flow-note">Reason codes in the order the gateway checks them.</span></div>
+    <ol class="flow" id="flow"></ol>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Questions</h2>
+      <div class="tools-row">
+        <div class="tabs" id="tabs"></div>
+        <button type="button" id="expand">Expand all</button>
+      </div>
+    </div>
+    <div class="qlist" id="questions"><p class="muted">Loading the questions…</p></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <div class="card-head"><h2>Labels in force</h2><span class="muted small">1 public · 4 special category</span></div>
+      <div id="labels"><p class="muted">Loading…</p></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Mandates the board runs under</h2></div>
+      <div id="mandates"><p class="muted">Loading…</p></div>
+    </section>
+  </div>
+
+  <div class="four">
+    <section class="card"><div class="card-head"><h2>Issuer</h2></div><div id="issuer"><p class="muted">Loading…</p></div></section>
+    <section class="card"><div class="card-head"><h2>Revocation</h2></div><div id="trust"><p class="muted">Loading…</p></div></section>
+    <section class="card"><div class="card-head"><h2>Tools</h2></div><div id="tools"><p class="muted">Loading…</p></div></section>
+    <section class="card"><div class="card-head"><h2>gateway/state on disk</h2></div><div id="files"><p class="muted">Loading…</p></div></section>
+  </div>
+</main>
+
+<script>
+const STAGES = [
+  {title: "Issuer", text: "Signs the mandate: scope, deny, clearance, the person's role, expiry, and a status index.", codes: []},
+  {title: "Mandate", text: "Accredited issuer, signature, nbf and exp within 30 s, then the status bit.", codes: ["ISSUER_NOT_ACCREDITED", "SIG_INVALID", "NOT_YET_VALID", "EXPIRED", "REVOKED", "STATUS_UNAVAILABLE"]},
+  {title: "Proof of possession", text: "Request signed by the key in cnf.jwk, a fresh nonce, time within 300 s.", codes: ["POP_FAILED"]},
+  {title: "Clearance", text: "A level 1 to 4 must be on the mandate. Without one, the person is told which agent asked. A role, if any, must be a name.", codes: ["CLEARANCE_MISSING", "CLEARANCE_INVALID", "ROLE_INVALID"]},
+  {title: "Scope", text: "Deny patterns, then any one whole entry. At most 100 rows, no empty search, no aggregate by pupil id. write and draft are held.", codes: ["DENIED_BY_RULE", "CONSTRAINT_MISSING", "CONSTRAINT_VIOLATED", "OUT_OF_SCOPE", "TOO_MUCH", "TOO_FINE", "STEP_UP"]},
+  {title: "Data server", text: "The call is forwarded. The gateway holds the result before the agent sees it.", codes: []},
+  {title: "Labels", text: "Every key and filter of the result is looked up in the manifest. The highest level decides. Level 4 also needs a role the gateway lists.", codes: ["CLEARANCE_TOO_LOW", "ROLE_REQUIRED", "ALLOW"]},
+  {title: "Rounding", text: "Aggregate totals and counts leave rounded to the nearest 10, so no count below 10 is released as itself.", codes: []},
+];
+const STATE_NAME = {solved: "Solved", answered: "Answered", open: "Open"};
+const ICON = {pass: "✓", fail: "✕", hold: "Ⅱ", allow: "✓", unread: "·"};
+
+const data = {questions: [], mandates: [], labels: null, health: null, loaded: false};
+let filter = "all";
+const opened = new Set(JSON.parse(localStorage.getItem("board-open") || "[6]"));
+
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const show = (v) => (v == null ? "—" : typeof v === "string" ? v : JSON.stringify(v));
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+async function getJson(url, options = {}, tries = 1) {
+  let last = "";
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetch(url, options);
+      const body = await res.json();
+      if (!res.ok && body && !body.error) body.error = `HTTP ${res.status}`;
+      return body;
+    } catch (err) {
+      last = String(err);
+      if (i < tries - 1) await sleep(500 * 2 ** i);
+    }
+  }
+  return {error: last || "no answer"};
+}
+
+function fromNow(seconds) {
+  if (!seconds) return "—";
+  const delta = seconds - Date.now() / 1000;
+  const a = Math.abs(delta);
+  const [n, unit] = a >= 86400 ? [a / 86400, "d"] : a >= 3600 ? [a / 3600, "h"] : a >= 60 ? [a / 60, "min"] : [a, "s"];
+  const text = `${Math.round(n)} ${unit}`;
+  return delta >= 0 ? `in ${text}` : `<span class="exp-past">${text} ago</span>`;
+}
+
+function lv(level, text, strong = false) {
+  const n = level == null ? 0 : level;
+  return `<span class="lv l${n}${strong ? " strong" : ""}"><span class="n">${n}</span>${esc(text)}</span>`;
+}
+
+function clearanceTag(level) {
+  return level == null ? `<span class="lv none">no clearance</span>` : lv(level, `clearance ${level}`);
+}
+
+function codeOf(c) {
+  if (c.got === "ALLOW") return "ALLOW";
+  if (c.got === "STEP_UP") return "STEP_UP";
+  return c.reason || "";
+}
+
+function codeClass(code) {
+  if (code === "ALLOW") return "allow";
+  if (code === "STEP_UP") return "hold";
+  return "";
+}
+
+/* ---------------------------------------------------------------- header, tiles, pipeline */
+
+function renderChips() {
+  const h = data.health || {};
+  const local = data.mandates.find((m) => m.label === "Local Ashfield");
+  const pack = data.mandates.find((m) => m.label === "Eval: Ashfield");
+  const dot = (on) => `<span class="dot ${on == null ? "" : on ? "on" : "off"}"></span>`;
+  const chips = [
+    `<span class="chip">${dot((h.mcp || {}).up)}<b>Pupil data</b>${esc((h.mcp || {}).url || "")}</span>`,
+    `<span class="chip">${dot((h.gateway || {}).up)}<b>Gateway</b>${esc((h.gateway || {}).url || "")}</span>`,
+  ];
+  if (local) chips.push(`<span class="chip"><b>Local mandate</b>clearance ${esc(show(local.clearance))}${local.role ? ` · ${esc(local.role)}` : ""} · expires ${fromNow(local.exp)}</span>`);
+  if (pack) chips.push(`<span class="chip"><b>Eval pack</b>expires ${fromNow(pack.exp)}</span>`);
+  if (data.labels && data.labels.path) chips.push(`<span class="chip"><b>Labels</b>${esc(data.labels.path)}</span>`);
+  $("chips").innerHTML = chips.join("");
+}
+
+function renderTiles() {
+  if (!data.loaded) {
+    $("tiles").innerHTML = ["Eval, questions 0-5", "Answered", "Open", "Labels the gateway reads"].map((h) => `<div class="tile"><h2>${h}</h2><div class="big muted">…</div><div class="sub">Loading</div></div>`).join("");
+    return;
+  }
+  const qs = data.questions;
+  const solved = qs.filter((q) => q.state === "solved");
+  const answered = qs.filter((q) => q.state === "answered");
+  const open = qs.filter((q) => q.state === "open");
+  const sum = (list, key) => list.reduce((acc, q) => acc + (q[key] || 0), 0);
+  const ran = (list) => list.length && list.every((q) => q.passed != null);
+  const score = (list) => {
+    if (!ran(list)) return {big: "—", cls: "", sub: "Run to check"};
+    const p = sum(list, "passed");
+    const t = sum(list, "total");
+    return {big: `${p}/${t}`, cls: p === t ? "ok" : "bad", sub: p === t ? "every case as expected" : `${t - p} not as expected`};
+  };
+  const evalScore = score(solved);
+  const probeScore = score(answered);
+  const labels = data.labels || {};
+  const cols = Object.values(labels.columns || {}).reduce((acc, table) => acc + Object.keys(table).length, 0);
+  const tiles = [
+    {h: "Eval, questions 0-5", big: evalScore.big, cls: evalScore.cls, sub: evalScore.sub},
+    {h: `Answered: ${answered.map((q) => q.n).join(", ") || "none"}`, big: probeScore.big, cls: probeScore.cls, sub: ran(answered) ? `probes, ${probeScore.sub}` : "probes with an expected decision"},
+    {h: "Open", big: String(open.length), cls: "", sub: "a probe shows today's decision"},
+    {h: "Labels the gateway reads", big: labels.error ? "!" : String(cols || "—"), cls: labels.error ? "bad" : "", sub: labels.error ? labels.error : `columns in ${Object.keys(labels.tables || {}).length} tables, re-read on every call`},
+  ];
+  $("tiles").innerHTML = tiles.map((t) => `<div class="tile"><h2>${esc(t.h)}</h2><div class="big ${t.cls}">${esc(t.big)}</div><div class="sub">${esc(t.sub)}</div></div>`).join("");
+}
+
+function renderFlow() {
+  const counts = {};
+  let total = 0;
+  for (const q of data.questions) {
+    for (const c of q.cases || []) {
+      if (c.status == null) continue;
+      const code = codeOf(c);
+      counts[code] = (counts[code] || 0) + 1;
+      total += 1;
+    }
+  }
+  $("flow-note").textContent = total ? `Reason codes in the order the gateway checks them. Counts are from the last run: ${total} calls.` : "Reason codes in the order the gateway checks them. Run the questions to count where each call was decided.";
+  $("flow").innerHTML = STAGES.map((s, i) => {
+    const here = s.codes.reduce((acc, code) => acc + (counts[code] || 0), 0);
+    const chips = s.codes.map((code) => {
+      const n = counts[code] || 0;
+      return `<span class="code ${codeClass(code)}${total && !n ? " quiet" : ""}">${esc(code)}${n ? `<span class="x">×${n}</span>` : ""}</span>`;
+    }).join("");
+    const note = total && s.codes.length ? `<div class="here">${here} decided here</div>` : "";
+    return `<li class="stage"><div class="num">${i + 1}</div><div class="title">${esc(s.title)}</div><div class="text">${esc(s.text)}</div><div class="codes">${chips}</div>${note}</li>`;
+  }).join("");
+}
+
+/* ---------------------------------------------------------------- questions */
+
+function renderTabs() {
+  const qs = data.questions;
+  const count = (state) => (state === "all" ? qs.length : qs.filter((q) => q.state === state).length);
+  $("tabs").innerHTML = ["all", "solved", "answered", "open"].map((state) => {
+    const name = state === "all" ? "All" : STATE_NAME[state];
+    return `<button type="button" data-filter="${state}" class="${filter === state ? "on" : ""}">${name} <span class="muted">${count(state)}</span></button>`;
+  }).join("");
+}
+
+function callCell(c) {
+  const args = Object.entries(c.arguments || {}).map(([k, v]) => `<span class="arg"><span class="k">${esc(k)}</span>${esc(show(v))}</span>`).join("");
+  return `<div class="case-name">${esc(c.name)}</div>
+    <div class="mandate-chip">${esc(c.mandate_label)} ${clearanceTag((c.match || {}).clearance)}</div>
+    <div class="tool"><code>pupil-data.${esc(c.tool)}</code></div>
+    <div class="args">${args}</div>`;
+}
+
+function stepsCell(c) {
+  const steps = ((c.match || {}).steps || []).map((s) => `<li class="${esc(s.kind)}"><span class="ic">${ICON[s.kind] || "·"}</span><span><b>${esc(s.check)}</b> <code>${esc(show(s.value))}</code> <span class="vs">vs</span> <code>${esc(show(s.against))}</code> <span class="res">${esc(s.result)}</span></span></li>`).join("");
+  return `<ol class="steps">${steps}</ol>`;
+}
+
+function labelsCell(c) {
+  const s = c.sensitivity || c.labels;
+  const from = c.sensitivity ? "from the gateway's decision" : "expected from the result's keys";
+  if (!s) return `<span class="muted">—</span>`;
+  if (!s.level) return `<div class="muted">No labelled data.</div><div class="src">${from}</div>`;
+  const decided = s.decided_by || [];
+  const pills = Object.entries(s.labels || {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name, level]) => lv(level, name, decided.includes(name))).join("");
+  return `<div class="lv-top">${lv(s.level, s.label)}</div>
+    <div class="decided">decided by ${decided.map((n) => `<b>${esc(n)}</b>`).join(", ")}</div>
+    <div class="pills">${pills}</div>
+    <div class="src">${from}</div>`;
+}
+
+function expectCell(c) {
+  if (c.expect) return `<span class="code ${codeClass(c.expect)}">${esc(c.expect)}</span>`;
+  if (c.today) return `<div class="today"><span class="muted">Today:</span> ${esc(c.today)}</div>`;
+  return `<span class="muted">—</span>`;
+}
+
+function runCell(c) {
+  if (c.status == null) return `<span class="muted">Not run yet</span>`;
+  if (c.status === 0) return `<span class="badge">no answer</span><div class="detail">${esc(c.detail || "The gateway did not answer.")}</div>`;
+  const verdict = c.ok == null ? "" : `<span class="verdict ${c.ok ? "pass" : "fail"}">${c.ok ? "PASS" : "FAIL"}</span>`;
+  const rows = c.count == null ? "" : ` · ${c.count} row${c.count === 1 ? "" : "s"}`;
+  const notes = [];
+  if (c.detail) notes.push(`<div class="detail">${esc(c.detail)}</div>`);
+  if (c.rounded === true) notes.push(`<div class="detail">Rounded by the gateway to the nearest ${esc(c.rounded_to)}. Counts released: <b>${esc((c.count_values || []).join(", "))}</b>.</div>`);
+  if (c.rounded === false) notes.push(`<div class="detail warn-text">Exact counts: the gateway did not round this answer.</div>`);
+  for (const cell of c.cells || []) notes.push(`<div class="cell mono small">${Object.entries(cell).map(([k, v]) => `${esc(k)} <b>${esc(v)}</b>`).join(" · ")}</div>`);
+  if (c.notice) notes.push(`<div class="notice"><b>Notice for the person</b>${esc(c.notice)}</div>`);
+  if (c.ignored_claim) notes.push(`<div class="detail">Signed and unread: purpose “${esc(c.ignored_claim.purpose)}”, principal <code>${esc(c.ignored_claim.principal)}</code>.</div>`);
+  if (c.audit_file != null) notes.push(`<div class="detail">Audit file in gateway/state: <b>${c.audit_file ? "yes" : "none"}</b>.</div>`);
+  return `<div class="run-top">${verdict}<span class="badge ${esc(c.got || "")}">${esc(c.got || "?")}</span></div>
+    <div class="mono small">${esc(c.reason || "")} · HTTP ${esc(c.status)}${rows}</div>${notes.join("")}`;
+}
+
+function caseRow(c) {
+  const cls = c.ok === true ? "pass" : c.ok === false ? "fail" : "";
+  return `<tr class="${cls}">
+    <td data-label="Call">${callCell(c)}</td>
+    <td data-label="Matched against">${stepsCell(c)}</td>
+    <td data-label="Labels">${labelsCell(c)}</td>
+    <td data-label="Expected">${expectCell(c)}</td>
+    <td data-label="This run">${runCell(c)}</td>
+  </tr>`;
+}
+
+function questionCard(q) {
+  const isOpen = opened.has(q.n);
+  const tally = q.passed != null ? `<span class="tally ${q.passed === q.total ? "ok" : "bad"}">${q.passed}/${q.total}</span>` : q.ran ? `<span class="tally">ran ${q.total}</span>` : "";
+  const third = q.state === "open" ? "What implementing changes" : q.state === "answered" ? "What the probes show" : "What the eval holds";
+  const cases = (q.cases || []).map(caseRow).join("") || `<tr><td colspan="5" class="muted">No cases.</td></tr>`;
+  return `<article class="q ${esc(q.state)}" id="q${q.n}">
+    <div class="q-head">
+      <button type="button" class="q-toggle" data-toggle="${q.n}" aria-expanded="${isOpen}">
+        <span class="q-num">${q.n}</span>
+        <span class="state ${esc(q.state)}">${STATE_NAME[q.state] || esc(q.state)}</span>
+        <span class="q-ask">${esc(q.asks)}</span>
+        <span class="chev">›</span>
+      </button>
+      ${tally}
+      <button type="button" class="run" data-run="${q.n}">Run</button>
+    </div>
+    <div class="q-body"${isOpen ? "" : " hidden"}>
+      <div class="facts">
+        <div><h4>How the decision is made</h4><p>${esc(q.binds)}</p></div>
+        <div><h4>${q.state === "answered" ? "Still unresolved" : "Still missing"}</h4><p>${esc(q.missing)}</p></div>
+        <div><h4>${third}</h4><p>${esc(q.solves)}</p></div>
+      </div>
+      ${q.error ? `<p class="err">${esc(q.error)}</p>` : ""}
+      <table class="cases">
+        <colgroup><col class="c-call"><col class="c-match"><col class="c-labels"><col class="c-expect"><col class="c-run"></colgroup>
+        <thead><tr><th>Call</th><th>Matched against</th><th>Labels</th><th>Expected</th><th>This run</th></tr></thead>
+        <tbody>${cases}</tbody>
+      </table>
+    </div>
+  </article>`;
+}
+
+function renderQuestions() {
+  renderTabs();
+  const list = data.questions.filter((q) => filter === "all" || q.state === filter);
+  $("questions").innerHTML = list.map(questionCard).join("") || `<p class="muted">No questions in this view.</p>`;
+  $("expand").textContent = list.length && list.every((q) => opened.has(q.n)) ? "Collapse all" : "Expand all";
+}
+
+function renderAll() {
+  renderChips();
+  renderTiles();
+  renderFlow();
+  renderQuestions();
+}
+
+function saveOpened() {
+  localStorage.setItem("board-open", JSON.stringify([...opened]));
+}
+
+/* ---------------------------------------------------------------- lower panels */
+
+function renderLabels(labels) {
+  const box = $("labels");
+  if (!labels || labels.error) { box.innerHTML = `<p class="err">${esc(labels && labels.error)}</p>`; return; }
+  const names = labels.levels || {};
+  const rows = Object.entries(labels.tables || {}).sort((a, b) => b[1] - a[1]).map(([table, level]) => {
+    const cols = Object.entries((labels.columns || {})[table] || {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([col, l]) => lv(l, col)).join("");
+    return `<tr><td><div class="tname">${esc(table)}</div>${lv(level, names[String(level)] || "")}</td><td><div class="pills">${cols}</div></td></tr>`;
+  }).join("");
+  box.innerHTML = `<table class="ltable"><tbody>${rows}</tbody></table>
+    <p class="foot">Read from <code>${esc(labels.path)}</code> on every forwarded call. Change a level there and the next call uses it. A key with no label counts as level ${Object.keys(names).length || 4}.</p>`;
+}
+
+function grants(scope) {
+  return (scope || []).map((entry) => {
+    const limits = Object.entries(entry.constraints || {}).map(([k, v]) => `${k} ∈ ${JSON.stringify(v)}`).join("; ");
+    return `<div class="grant"><span class="t">${esc((entry.tools || []).join(", "))}</span> <span class="c">${esc(limits || "no constraints")}</span></div>`;
+  }).join("");
+}
+
+function renderMandates(rows) {
+  const box = $("mandates");
+  if (!rows.length) { box.innerHTML = `<p class="err">No mandates found.</p>`; return; }
+  box.innerHTML = `<div class="scroll-x"><table><thead><tr><th>Mandate</th><th>Clearance</th><th>Role</th><th>Grants</th><th>Expires</th></tr></thead><tbody>${rows.map((m) => `
+    <tr><td><b>${esc(m.label)}</b><div class="mono muted file">${esc(m.file)} · idx ${esc(show(m.idx))}</div></td>
+    <td>${clearanceTag(m.clearance)}</td>
+    <td>${m.role ? `<code>${esc(m.role)}</code>` : `<span class="muted small">none</span>`}</td>
+    <td>${grants(m.scope)}<div class="grant c">deny ${esc((m.deny || []).join(", ") || "none")}</div></td>
+    <td class="small">${fromNow(m.exp)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function renderIssuer(issuerData) {
+  const box = $("issuer");
+  if (!issuerData || issuerData.error) { box.innerHTML = `<p class="err">${esc(issuerData && issuerData.error)}</p>`; return; }
+  const issuer = issuerData.issuer || {};
+  const jwk = issuer.public_jwk || {};
+  box.innerHTML = `<table class="kv">
+    <tr><th>iss</th><td><code>${esc(issuer.iss)}</code></td></tr>
+    <tr><th>kid</th><td><code>${esc(issuer.kid)}</code></td></tr>
+    <tr><th>public key</th><td><code>${esc(jwk.kty)} ${esc(jwk.crv)}</code><div class="mono muted">${esc(jwk.x)}</div></td></tr>
+    <tr><th>private key</th><td>On disk only. This page never reads it.</td></tr>
+  </table>`;
+}
+
+function renderTrust(trust) {
+  const box = $("trust");
+  if (!trust || trust.error) { box.innerHTML = `<p class="err">${esc(trust && trust.error)}</p>`; return; }
+  const list = trust.status_list || {};
+  const revoked = (list.revoked || []).map((i) => `<span class="tag private">${esc(i)}</span>`).join("") || "none";
+  const issuers = Object.keys((trust.trusted_list || {}).issuers || {});
+  box.innerHTML = `<table class="kv">
+    <tr><th>trusted issuers</th><td><code>${esc(issuers.join(", ") || "none")}</code></td></tr>
+    <tr><th>status list</th><td><code>${esc(list.uri)}</code></td></tr>
+    <tr><th>issued</th><td>${esc(list.issued)}</td></tr>
+    <tr><th>revoked idx</th><td>${revoked}</td></tr>
+  </table>`;
+}
+
+function renderTools(describe) {
+  const box = $("tools");
+  const servers = (describe && describe.servers) || {};
+  const held = (describe && describe.step_up_patterns) || [];
+  const tools = Object.entries(servers).flatMap(([server, list]) => list.map((t) => ({name: `${server}.${t.name}`, description: t.description || ""})));
+  if (!tools.length) { box.innerHTML = `<p class="err">${esc((describe && describe.error) || "no tools")}</p>`; return; }
+  const isHeld = (name) => held.some((pat) => new RegExp(`^${pat.replace(/[.]/g, "\\.").replace(/\*/g, ".*")}$`).test(name));
+  box.innerHTML = `<div>${tools.map((t) => `<span class="tag${isHeld(t.name) ? " held" : ""}" title="${esc(t.description.trim())}">${esc(t.name)}${isHeld(t.name) ? " · step-up" : ""}</span>`).join("")}</div>
+    <p class="foot">Step-up patterns: <code>${esc(held.join(", "))}</code>. Hover a tool for its description.</p>`;
+}
+
+function renderFiles(health) {
+  const box = $("files");
+  const files = (health && health.files) || [];
+  if (!files.length) { box.innerHTML = `<p class="err">${esc((health && health.error) || "gateway/state is empty")}</p>`; return; }
+  box.innerHTML = `<table><thead><tr><th>file</th><th></th><th>bytes</th></tr></thead><tbody>${files.map((f) => `
+    <tr><td><code>${esc(f.name)}</code></td><td>${f.private ? '<span class="tag private">private</span>' : '<span class="tag">public</span>'}</td><td class="mono">${esc(f.bytes)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+/* ---------------------------------------------------------------- loading and running */
+
+async function loadQuestions() {
+  const body = await getJson("/api/questions", {}, 4);
+  if (body.error && !body.questions) {
+    $("questions").innerHTML = `<p class="err">Could not load the questions: ${esc(body.error)}</p><button type="button" id="retry">Retry</button>`;
+    $("retry").addEventListener("click", loadQuestions);
+    return;
+  }
+  data.questions = body.questions || [];
+  data.loaded = true;
+  renderAll();
+}
+
+async function refresh() {
+  const jobs = [
+    getJson("/api/health", {}, 2).then((h) => { data.health = h; renderFiles(h); renderChips(); }),
+    getJson("/api/issuer", {}, 2).then(renderIssuer),
+    getJson("/api/trust", {}, 2).then(renderTrust),
+    getJson("/api/describe", {}, 2).then(renderTools),
+    getJson("/api/labels", {}, 2).then((l) => { data.labels = l; renderLabels(l); renderChips(); renderTiles(); }),
+    getJson("/api/mandates", {}, 3).then((m) => { data.mandates = m.mandates || []; renderMandates(data.mandates); renderChips(); }),
+    loadQuestions(),
+  ];
+  await Promise.allSettled(jobs);
+}
+
+async function runOne(n, button) {
+  button.disabled = true;
+  button.textContent = "Running…";
+  const row = await getJson(`/api/questions/${n}/run`, {method: "POST"});
+  const at = data.questions.findIndex((q) => q.n === n);
+  if (at >= 0) data.questions[at] = row.n == null ? {...data.questions[at], error: row.error || "run failed"} : row;
+  opened.add(n);
+  saveOpened();
+  renderAll();
+}
+
+async function runAll() {
+  const button = $("run-all");
+  button.disabled = true;
+  button.textContent = "Running every question…";
+  const body = await getJson("/api/questions/run", {method: "POST"});
+  button.disabled = false;
+  button.textContent = "Run all questions";
+  if (body.error || !body.questions) {
+    $("questions").insertAdjacentHTML("afterbegin", `<p class="err">Run failed: ${esc(body.error || "no answer")}</p>`);
+    return;
+  }
+  data.questions = body.questions;
+  renderAll();
+}
+
+document.addEventListener("click", (event) => {
+  const toggle = event.target.closest("[data-toggle]");
+  if (toggle) {
+    const n = Number(toggle.dataset.toggle);
+    if (opened.has(n)) opened.delete(n); else opened.add(n);
+    saveOpened();
+    renderQuestions();
+    return;
+  }
+  const run = event.target.closest("[data-run]");
+  if (run) { runOne(Number(run.dataset.run), run); return; }
+  const tab = event.target.closest("[data-filter]");
+  if (tab) { filter = tab.dataset.filter; renderQuestions(); }
+});
+$("expand").addEventListener("click", () => {
+  const list = data.questions.filter((q) => filter === "all" || q.state === filter);
+  const all = list.every((q) => opened.has(q.n));
+  for (const q of list) { if (all) opened.delete(q.n); else opened.add(q.n); }
+  saveOpened();
+  renderQuestions();
+});
+$("refresh").addEventListener("click", refresh);
+$("run-all").addEventListener("click", runAll);
+renderTiles();
+renderFlow();
+refresh();
+</script>
+</body>
+</html>

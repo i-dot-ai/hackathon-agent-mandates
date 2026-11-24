@@ -1,0 +1,4 @@
+[
+  {"server": "pupil-data", "tools": ["roster", "search"], "constraints": {"urn": ["SCH03"]}},
+  {"server": "pupil-data", "tools": ["get"], "constraints": {"path": ["synthetic/synthetic_schools.csv"]}}
+]

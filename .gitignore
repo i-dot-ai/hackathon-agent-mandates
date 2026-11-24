@@ -67,6 +67,9 @@ eval_pack/
 # Synthetic extract: commit the CSVs (overrides the global *.csv rule above)
 !mcp_server/data/synthetic/*.csv
 
+# Local board source. The global *.html rule is for rendered slides.
+!local_view/index.html
+
 .tmp/
 
 # MCP server write tool output

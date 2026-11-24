@@ -12,7 +12,8 @@
     "agent_id",
     "scope",
     "deny",
-    "status"
+    "status",
+    "clearance"
   ],
   "properties": {
     "iss": {
@@ -93,6 +94,17 @@
     "purpose": {
       "type": "string",
       "maxLength": 500
+    },
+    "clearance": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4,
+      "description": "Highest PII sensitivity the agent may receive (question 6). Missing is an error (CLEARANCE_MISSING), not a default; a result above it is denied (CLEARANCE_TOO_LOW)."
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A role the person holds, signed in for the agent. A level 4 result also needs a role the gateway lists (ROLE_REQUIRED); the gateway, not the mandate, says which roles open level 4. Not a string is ROLE_INVALID."
     },
     "scope": {
       "type": "array",

@@ -16,7 +16,7 @@ synth:  ## Regenerate mcp_server/data/synthetic (pupil census, deprivation, scho
 hack: install  ## One command start: keys, one-school mandate, eval pack, containers, first signed call
 	cp -n .env.example .env || true
 	test -f gateway/state/trusted_list.json || uv run python -m gateway.cli init
-	uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem -o gateway/state/mandate.jwt
+	uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem --clearance 4 --role safeguarding-lead -o gateway/state/mandate.jwt
 	uv run python -m gateway.eval build -o eval_pack
 	docker compose up -d --wait
 	uv run python -m gateway.cli call --mandate gateway/state/mandate.jwt --agent-key gateway/state/agent.pem \
@@ -32,7 +32,7 @@ gateway_init:  ## Generate gateway keys, trusted list and status list in gateway
 	uv run python -m gateway.cli init
 
 gateway_issue:  ## Issue a default one-school (SCH01) mandate to gateway/state/agent.pem
-	uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem -o gateway/state/mandate.jwt
+	uv run python -m gateway.cli issue --agent-key gateway/state/agent.pem --clearance 4 --role safeguarding-lead -o gateway/state/mandate.jwt
 
 eval_build:  ## Mint the eval mandates + keys from gateway/state into eval_pack/
 	uv run python -m gateway.eval build -o eval_pack
@@ -45,10 +45,10 @@ attack_mandates:  ## Day 2: issue the default mandate, and a feature mandate if 
 	for key in day_2_attack/keys/*.jwk; do \
 		[ -e "$$key" ] || { echo "no keys in day_2_attack/keys"; exit 1; }; \
 		team=$$(basename "$$key" .jwk); \
-		uv run python -m gateway.cli issue --agent-key "$$key" --ttl 86400 -o "day_2_attack/mandates/$$team.jwt" \
+		uv run python -m gateway.cli issue --agent-key "$$key" --ttl 86400 --clearance 4 --role safeguarding-lead -o "day_2_attack/mandates/$$team.jwt" \
 			--principal "attacker:$$team" --purpose "Day 2 attack mandate for $$team"; \
 		if [ -n "$(FEATURE_SCOPE)$(FEATURE_CLAIMS)" ]; then \
-			uv run python -m gateway.cli issue --agent-key "$$key" --ttl 86400 -o "day_2_attack/mandates/$$team.feature.jwt" \
+			uv run python -m gateway.cli issue --agent-key "$$key" --ttl 86400 --clearance 2 -o "day_2_attack/mandates/$$team.feature.jwt" \
 				--principal "attacker:$$team" --purpose "Day 2 feature mandate for $$team" \
 				$(if $(FEATURE_SCOPE),--scope "$$(cat $(FEATURE_SCOPE))") $(if $(FEATURE_CLAIMS),--claims "$$(cat $(FEATURE_CLAIMS))"); \
 		fi; \

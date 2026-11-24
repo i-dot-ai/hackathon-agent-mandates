@@ -1,2 +1,14 @@
 */*.pdf
 *.ipynb
+
+# Private keys, mandates and runtime state never go into an image. The gateway gets its state from a mounted
+# folder, and a deployed gateway needs only trusted_list.json, status_list.json and status_list.jwt in it.
+gateway/state/
+eval_pack/
+day_2_attack/keys/
+day_2_attack/mandates/
+**/*.pem
+**/*.jwt
+**/audit.jsonl
+**/nonces.sqlite
+.env
