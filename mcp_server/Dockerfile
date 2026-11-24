@@ -25,6 +25,7 @@ RUN uv sync --locked --no-dev --no-install-project --extra fastapi
 # Copy minimal structure needed for installation
 COPY mcp_server mcp_server
 COPY shared_utils shared_utils
+COPY tool_grants tool_grants
 
 
 

@@ -1,0 +1,30 @@
+# Gateway run limits (OpenSpec add-run-budgets, docs/run-budgets.md).
+#
+# Every value can be overridden by an environment variable: GATEWAY_LIMIT_<SECTION>_<KEY> in upper case,
+# e.g. GATEWAY_LIMIT_CEILINGS_PER_KEY_PER_MINUTE=600. Another file: GATEWAY_LIMITS_CONFIG=/path/to/limits.yaml.
+# The gateway refuses to start if a value is missing its section, unknown, or not a non-negative integer (null where
+# allowed). 0 turns a ceiling or alert off.
+
+ceilings:
+  # calls per agent key in the last 60 s, whatever the mandate says (429 RATE_LIMITED); one eval run is ~32
+  per_key_per_minute: 300
+  # requests that failed verification, per source address, in the last 60 s; checked before any signature work
+  unverified_per_source_per_minute: 120
+  # while a ceiling holds, record at most this many audit events per caller per second
+  record_per_second: 1
+  # Retry-After sent with RATE_LIMITED
+  retry_after_seconds: 60
+
+budgets:
+  # Applied to mandates that carry no budget claim of their own. null = none (mandates without claims behave as
+  # before, which keeps question 0 and the Day 2 default mandate passing). A mandate's own claim always wins.
+  default_distinct_pupils: null
+  default_calls: null
+
+alerts:
+  # Only for mandates with no budget or rate claim: recorded in the audit trail, never a refusal.
+  refusals_in_a_row: 5
+  many_pupils: 200
+  # a pupil returned to this many different mandates within the window is flagged as targeted
+  pupil_targeted_mandates: 3
+  pupil_targeted_window_minutes: 60

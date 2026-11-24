@@ -50,7 +50,9 @@ Timetable: [AGENDA.md](AGENDA.md). Full walkthrough and CLI examples: [README.md
 None of these are part of the problem. Changing them makes your results meaningless to other teams.
 
 - **The data:** `mcp_server/data/synthetic/`, `mcp_server/synth/`. Every team works from the same pupils.
-- **The demo UI:** `frontend/`. It is a walkthrough only.
+- **The demo UI's existing walkthrough:** `frontend/src/pages/demo.astro` and `MandateDemo.svelte`. Since 23 Nov the
+  organisers allow this team to add pages to `frontend/` (for example the scope-request approval page); keep the
+  demo walkthrough working.
 
 ## Rules of thumb
 

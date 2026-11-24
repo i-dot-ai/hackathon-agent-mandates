@@ -1,0 +1,16 @@
+---
+import Layout from "@layouts/Layout.astro";
+import ApprovalRequest from "@components/ApprovalRequest.svelte";
+
+const { id } = Astro.params;
+---
+
+<Layout>
+  <div class="govuk-width-container govuk-main-wrapper" id="main-content">
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        <ApprovalRequest client:load requestId={id ?? ""} />
+      </div>
+    </div>
+  </div>
+</Layout>

@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = "==3.12.*"
 resolution-markers = [
     "sys_platform == 'win32'",
@@ -32,6 +32,7 @@ gateway = [
     { name = "fastapi" },
     { name = "litellm" },
     { name = "pyjwt" },
+    { name = "pyyaml" },
     { name = "uvicorn" },
 ]
 synth = [
@@ -75,6 +76,7 @@ requires-dist = [
     { name = "pyjwt", marker = "extra == 'fastapi'", specifier = ">=2.9.0" },
     { name = "pyjwt", marker = "extra == 'gateway'", specifier = ">=2.9.0" },
     { name = "python-keycloak", marker = "extra == 'fastapi'", specifier = ">=4.7.3" },
+    { name = "pyyaml", marker = "extra == 'gateway'", specifier = ">=6" },
     { name = "pyyaml", marker = "extra == 'synth'", specifier = ">=6" },
     { name = "sentry-sdk", extras = ["fastapi"], marker = "extra == 'fastapi'", specifier = ">=2.18.0" },
     { name = "uvicorn", marker = "extra == 'fastapi'", specifier = ">=0.31.0" },

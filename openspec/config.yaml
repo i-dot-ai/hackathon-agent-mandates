@@ -1,0 +1,70 @@
+schema: spec-driven
+
+# Project context, shown to the AI when it writes any OpenSpec artifact.
+context: |
+  Project: Mandate Gateway hackathon (fork of i-dot-ai/hackathon-agent-mandates).
+  Question for the two days: how should a person pass part of their access down to an AI agent?
+  Answer we build on: a signed, scoped, expiring, revocable mandate, checked by a gateway on every tool call.
+
+  Components:
+  - MCP server (FastMCP, :8080, mcp_server/api/routes_mcp.py): synthetic pupil data, NO access control.
+    Tools: search, get, aggregate, classification, roster, pupil, draft, write.
+  - Gateway (FastAPI, :8082, gateway/main.py): POST /tools/call -> verify -> forward to MCP.
+    All decisions live in gateway/lib/gateway_verify.py (verify_mandate, check_request, Gateway.decide).
+  - Issuer and CLI: gateway/cli.py, gateway/lib/mandate_issuer.py, trust_registry.py, status_list.py.
+  - Team UI (Astro/Svelte, :8081, frontend/): the demo walkthrough plus team pages such as approvals; reaches backends only through its server-side proxies.
+
+  Mandate: EdDSA JWT, typ mandate+jwt. Claims: iss, jti, exp, cnf.jwk (agent key), agent_id, delegator,
+  purpose, scope [{server, tools, constraints}], deny (globs), status.status_list {uri, idx}.
+  Requests are signed by the agent key over canonical JSON of {server, tool, arguments, mandate_hash, nonce, ts}.
+  Decisions: 200 ALLOW, 202 STEP_UP, 403 DENY, each with a stable reason_code.
+
+  Data: 1,500 synthetic pupils, 12 schools (SCH01..SCH12), Years 10/11, academic years 2020/21..2023/24,
+  terms AUT/SPR/SUM. PII levels 1 public, 2 basic, 3 sensitive, 4 special category (ethnicity, care status).
+  Treat it as real data.
+
+  Our planned layers (team design): audience scoping (whose data), throttling and budgets,
+  hash-chained audit trail with history-aware rules, and a decision-model guardrail that only tightens.
+
+  Stack: Python 3.12, uv, FastAPI, fastmcp, PyJWT, cryptography (Ed25519), pytest, ruff; Docker Compose.
+  Commands: make hack, make eval_run (questions 0-5), make test, make lint,
+  docker compose up -d --build gateway after gateway changes.
+
+  Hard rules from the organisers:
+  - Keep the POST /tools/call request shape unchanged; other teams and the eval depend on it.
+  - Question 0 must keep passing; run make eval_run, make test, make lint before finishing.
+  - Do not change mcp_server/data/synthetic/ or mcp_server/synth/.
+  - frontend/ may be changed (organisers approved on 2026-11-23), e.g. to add the approval page; keep the demo walkthrough working.
+  - A mandate cannot be edited: issue a new one and revoke the old one.
+  - Never commit gateway/state/*.pem or eval_pack/; share only public keys and mandates.
+  - Going straight to :8080 bypasses the gateway; it is a known hole, not a way to pass a question.
+
+# Per-artifact rules.
+rules:
+  proposal:
+    - Name the hackathon question(s) it addresses (0-16) and the layer it belongs to.
+    - Say how mandates without the new claim behave; the default must keep question 0 passing.
+    - Include a Non-goals section.
+  specs:
+    - "Write requirements as gateway behaviour: given a mandate and a request, the decision and reason_code."
+    - Every new deny or step-up path gets a new stable reason_code, named in the spec.
+    - Include at least one allowed and one denied scenario, laid out like questions/02-worked-example.md.
+    - Never read trust-bearing values (clearance, purpose, audience) from request arguments; only from signed mandate claims.
+  design:
+    - Say where the check runs (gateway_verify.py, main.py tools_call, or a new module) and in what order relative to existing checks.
+    - State the failure mode explicitly; the default is fail closed.
+    - Note the Day 2 attack this opens or closes (see day_2_attack/ATTACK_SCORING.md).
+  tasks:
+    - Keep tasks under 2 hours each.
+    - Include eval and test tasks; new behaviour gets cases in gateway/tests/.
+    - Last tasks are always make eval_run, make test, make lint, and a rebuild of the gateway container.
+
+# Per-operation guidance.
+operations:
+  apply:
+    guidance:
+      - Make gateway changes in gateway/lib/ first; keep gateway/main.py thin.
+      - Rebuild the gateway container before judging behaviour against :8082.
+  archive:
+    guidance:
+      - Before archiving, confirm make eval_run still shows question 0 at 12/12.

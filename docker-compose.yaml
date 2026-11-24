@@ -6,6 +6,11 @@ services:
       dockerfile: ./mcp_server/Dockerfile
     volumes:
       - ./mcp_server/data:/app/mcp_server/data
+      # tool grants: only the public half of the gateway's grant key (make grant_key creates it)
+      - ./gateway/state/tool_grant.pub:/app/keys/tool_grant.pub:ro
+    environment:
+      - TOOL_GRANTS=enforce
+      - TOOL_GRANT_PUB=/app/keys/tool_grant.pub
     container_name: mcp-backend
     ports:
       - "8080:8080"
@@ -40,6 +45,28 @@ services:
     environment:
       - BACKEND_URL=http://backend:8080
       - GATEWAY_URL=http://gateway:8082
+      - ISSUER_URL=http://issuer:8083
+
+  # data-interface servers (schools, directory, special): read-only data, no published port, gateway-only
+  slices:
+    build:
+      context: .
+      dockerfile: ./data_slices/Dockerfile
+    volumes:
+      - ./mcp_server/data:/app/mcp_server/data:ro
+      - ./gateway/state/tool_grant.pub:/app/keys/tool_grant.pub:ro
+    environment:
+      - TOOL_GRANTS=enforce
+      - TOOL_GRANT_PUB=/app/keys/tool_grant.pub
+    container_name: data-slices
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8090/healthcheck" ]
+      interval: 3s
+      timeout: 2s
+      retries: 3
+      start_period: 3s
+    networks:
+      - agent-mandate-hack-network
 
   gateway:
     build:
@@ -49,9 +76,28 @@ services:
     ports:
       - "8082:8082"
     volumes:
-      - ./gateway/state:/app/gateway/state
+      # public state only: the issuer key stays with the issuer service (add-scope-requests)
+      - ./gateway/state/trusted_list.json:/app/gateway/state/trusted_list.json:ro
+      - ./gateway/state/status_list.json:/app/gateway/state/status_list.json:ro
+      - ./gateway/state/status_list.jwt:/app/gateway/state/status_list.jwt:ro
+      - ./gateway/state/gateway_key.pem:/app/gateway/state/gateway_key.pem:ro
+      - ./gateway/state/gateway.pub:/app/gateway/state/gateway.pub:ro
+      - ./gateway/state/tool_grant_key.pem:/app/gateway/state/tool_grant_key.pem:ro
+      - ./gateway/state/tool_grant.pub:/app/gateway/state/tool_grant.pub:ro
+      - ./mcp_server/data/synthetic/synthetic_schools.csv:/app/data/synthetic_schools.csv:ro
+      # PII levels per column, for the audit trail's "what came back" (public metadata, read-only)
+      - ./mcp_server/data/synthetic/synthetic_manifest.json:/app/data/synthetic_manifest.json:ro
+      # the audit trail (SQLite), on its own volume so it outlives the container and stays out of gateway/state
+      - gateway-audit:/app/gateway/audit
     environment:
-      - MCP_SERVERS=pupil-data=http://backend:8080/mcp/
+      - GATEWAY_MANIFEST_PATH=/app/data/synthetic_manifest.json
+      # the /demo walkthrough mints and revokes with no login: off unless set (and it needs the issuer key)
+      - GATEWAY_ENABLE_DEMO=${GATEWAY_ENABLE_DEMO:-}
+      - GATEWAY_AUDIT_DB=/app/gateway/audit/audit.sqlite
+      - GATEWAY_STATE_DB=/app/gateway/audit/gateway-state.sqlite
+      - GATEWAY_SCHOOLS_PATH=/app/data/synthetic_schools.csv
+      - ISSUER_URL=http://issuer:8083
+      - MCP_SERVERS=pupil-data=http://backend:8080/mcp/,schools=http://slices:8090/schools/mcp/,directory=http://slices:8090/directory/mcp/,special=http://slices:8090/special/mcp/
       - GATEWAY_STATE_DIR=/app/gateway/state
       - LITELLM_KEY=${LITELLM_KEY:-}
       - LITELLM_BASE_URL=${LITELLM_BASE_URL:-}
@@ -66,6 +112,39 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      slices:
+        condition: service_healthy
+
+  # holds the issuer key: mints supplementary mandates on verified approvals (add-scope-requests)
+  issuer:
+    build:
+      context: .
+      dockerfile: ./issuer/Dockerfile
+    container_name: issuer
+    ports:
+      - "127.0.0.1:8083:8083"  # local only: the CLI's `approve`; the UI reaches it over the network
+    volumes:
+      - ./gateway/state:/app/gateway/state
+      - ./mcp_server/data/synthetic/synthetic_schools.csv:/app/data/synthetic_schools.csv:ro
+      - issuer-data:/app/issuer/data
+    environment:
+      - ISSUER_STATE_DIR=/app/gateway/state
+      - ISSUER_DB=/app/issuer/data/requests.sqlite
+      - GATEWAY_SCHOOLS_PATH=/app/data/synthetic_schools.csv
+      - GATEWAY_INTERNAL_URL=http://gateway:8082
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8081}
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:8083/healthcheck" ]
+      interval: 3s
+      timeout: 2s
+      retries: 3
+      start_period: 3s
+    networks:
+      - agent-mandate-hack-network
+
+volumes:
+  gateway-audit:
+  issuer-data:
 
 networks:
   agent-mandate-hack-network:

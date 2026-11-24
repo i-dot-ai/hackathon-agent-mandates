@@ -1,0 +1,21 @@
+# Day 2 deployment, layered on the base stack (docs/deploy.md):
+#   docker compose -f docker-compose.yaml -f docker-compose.deploy.yaml up -d --build --wait   (or: make deploy_up)
+#
+# Only the gateway is reachable from outside. The data servers, the UI (approval page) and the issuer service stay on
+# the Compose network or on the host's loopback, so an attacker's only way in is POST /tools/call on :8082.
+
+services:
+
+  backend:
+    # the MCP server answers only signed tool grants (GRANT_MISSING otherwise), but there's no reason to publish it
+    ports: !reset []
+
+  frontend:
+    # the approval page: open it through an SSH tunnel to the host, never publicly
+    ports: !override
+      - "127.0.0.1:8081:8081"
+
+  gateway:
+    environment:
+      # the demo mints and revokes with no login; never on a deployed gateway
+      - GATEWAY_ENABLE_DEMO=

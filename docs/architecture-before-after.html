@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mandate flow: before and after</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --fg: #1d2327; --muted: #5d676e; --line: #d5d2ca; --panel: #ffffff;
+    --new: #0b7a6e; --new-bg: #e3f3f0; --risk: #b3261e; --risk-bg: #fbe9e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181b; --fg: #e6e9eb; --muted: #9aa5ac; --line: #353d43; --panel: #1b2125;
+      --new: #5fd3c4; --new-bg: #12332f; --risk: #ff9e94; --risk-bg: #3a1c19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181b; --fg: #e6e9eb; --muted: #9aa5ac; --line: #353d43; --panel: #1b2125;
+    --new: #5fd3c4; --new-bg: #12332f; --risk: #ff9e94; --risk-bg: #3a1c19;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 16px 72px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-size: 21px; margin: 48px 0 8px; }
+  p { max-width: 70ch; margin: 8px 0; }
+  .lede { color: var(--muted); }
+  code { font: 0.88em ui-monospace, SFMono-Regular, Menlo, monospace; }
+  figure { margin: 20px 0 8px; }
+  .frame { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; }
+  svg { display: block; width: 100%; min-width: 760px; height: auto; color: var(--fg); }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; max-width: 80ch; }
+  .key { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: var(--muted); margin: 12px 0 0; padding: 0; list-style: none; }
+  .key span { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; border: 1.5px solid; }
+  .k-new { background: var(--new-bg); border-color: var(--new) !important; }
+  .k-risk { background: var(--risk-bg); border-color: var(--risk) !important; }
+  .k-same { border-color: var(--fg) !important; }
+
+  /* svg parts */
+  .box { fill: var(--panel); stroke: currentColor; stroke-width: 1.3; }
+  .box-new { fill: var(--new-bg); stroke: var(--new); stroke-width: 1.6; }
+  .t { font: 12px system-ui, sans-serif; fill: currentColor; }
+  .th { font: 600 13px system-ui, sans-serif; fill: currentColor; }
+  .tm { font: 11px system-ui, sans-serif; fill: var(--muted); }
+  .tn { font: 600 12px system-ui, sans-serif; fill: var(--new); }
+  .tr { font: 600 12px system-ui, sans-serif; fill: var(--risk); }
+  .a { stroke: currentColor; stroke-width: 1.3; fill: none; }
+  .a-new { stroke: var(--new); stroke-width: 1.6; fill: none; }
+  .a-risk { stroke: var(--risk); stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
+  .a-dead { stroke: var(--muted); stroke-width: 1.3; fill: none; stroke-dasharray: 3 4; }
+  .dot-new { fill: var(--new); }
+  .dot-same { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; margin-top: 12px; min-width: 720px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  td:first-child { font-weight: 600; width: 17%; }
+  td:nth-child(2), td:nth-child(3) { width: 25%; }
+  .q { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; }
+  ul.plain { padding-left: 20px; max-width: 75ch; }
+  ul.plain li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mandate flow: first commit against today's <code>main</code></h1>
+  <p class="lede">Comparing <code>299bca6</code> (20 Nov, the hackathon base) with <code>521a378</code> (24 Nov). 39 commits, 130 files, about 14,900 lines added.</p>
+  <p>The starter had one control point: the gateway checked a signed mandate, then forwarded the call to a data server that trusted anyone. Today the gateway still makes the decision, but it is no longer the only thing between an agent and the data. The data servers check a signed grant for every call, a separate issuer service holds the signing key and mints narrower mandates on a person's approval, and every call leaves a signed record. The request shape of <code>POST /tools/call</code> has not changed.</p>
+
+  <h2>Before: one check, then trust</h2>
+  <figure>
+    <div class="frame">
+    <svg viewBox="0 0 1000 310" role="img" aria-label="First commit: the agent calls the gateway, which verifies the mandate and forwards to an MCP server with no access control. The agent can also call the MCP server directly.">
+      <defs>
+        <marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="hr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--risk)"/></marker>
+      </defs>
+
+      <!-- bypass -->
+      <path class="a-risk" d="M105 90 V30 H855 V110" marker-end="url(#hr)"/>
+      <text class="tr" x="480" y="22" text-anchor="middle">direct call to :8080 skips every check and returns whole rows</text>
+
+      <rect class="box" x="20" y="90" width="170" height="70" rx="6"/>
+      <text class="th" x="34" y="114">Agent</text>
+      <text class="t" x="34" y="134">agent.pem + mandate.jwt</text>
+      <text class="tm" x="34" y="150">signs each request itself</text>
+
+      <path class="a" d="M190 125 H320" marker-end="url(#h)"/>
+      <text class="t" x="255" y="117" text-anchor="middle">POST /tools/call</text>
+      <text class="tm" x="255" y="141" text-anchor="middle">mandate + signature</text>
+
+      <rect class="box" x="320" y="60" width="300" height="180" rx="6"/>
+      <text class="th" x="336" y="84">Gateway :8082</text>
+      <circle class="dot-same" cx="342" cy="106" r="3.5"/><text class="t" x="354" y="110">mandate: issuer, signature, time, revoked</text>
+      <circle class="dot-same" cx="342" cy="128" r="3.5"/><text class="t" x="354" y="132">proof of possession (sig, nonce, ts)</text>
+      <circle class="dot-same" cx="342" cy="150" r="3.5"/><text class="t" x="354" y="154">deny globs, then first matching scope entry</text>
+      <circle class="dot-same" cx="342" cy="172" r="3.5"/><text class="t" x="354" y="176">ALLOW forward, DENY 403, STEP_UP 202</text>
+      <text class="tr" x="336" y="204">issuer key mounted inside the gateway</text>
+      <text class="tr" x="336" y="224">no record of what was decided or returned</text>
+
+      <path class="a" d="M620 150 H730" marker-end="url(#h)"/>
+      <text class="t" x="675" y="142" text-anchor="middle">forwards call</text>
+      <text class="tm" x="675" y="166" text-anchor="middle">no credential</text>
+
+      <rect class="box" x="730" y="110" width="250" height="90" rx="6"/>
+      <text class="th" x="744" y="134">pupil-data (MCP) :8080</text>
+      <text class="t" x="744" y="154">whole census rows, levels 1 to 4</text>
+      <text class="tr" x="744" y="178">trusts any caller</text>
+
+      <rect class="box" x="20" y="230" width="170" height="60" rx="6"/>
+      <text class="th" x="34" y="254">Person at the CLI</text>
+      <text class="t" x="34" y="274">cli issue / revoke</text>
+      <path class="a" d="M190 262 H470 V240" marker-end="url(#h)"/>
+      <text class="tm" x="330" y="280" text-anchor="middle">writes keys, trusted list, status list</text>
+    </svg>
+    </div>
+    <figcaption>Commit <code>299bca6</code>. A held call (202) had nowhere to go: nothing could approve it. The demo UI on :8081 is left out; it only walks through this same flow.</figcaption>
+  </figure>
+
+  <h2>After: every hop is scoped, and asking for more is a path</h2>
+  <figure>
+    <div class="frame">
+    <svg viewBox="0 0 1000 620" role="img" aria-label="Today: the agent works through a shim that holds the key. The gateway runs a longer pipeline, signs a tool grant for each forwarded call, writes an audit event, and passes scope requests to a separate issuer service that a person approves through a page.">
+      <defs>
+        <marker id="h2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="hn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--new)"/></marker>
+        <marker id="hd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker>
+      </defs>
+
+      <!-- blocked bypass -->
+      <path class="a-dead" d="M105 90 V24 H855 V40" marker-end="url(#hd)"/>
+      <text class="tm" x="480" y="16" text-anchor="middle">direct call is refused: GRANT_MISSING (and the port is not published when deployed)</text>
+
+      <rect class="box" x="20" y="90" width="170" height="54" rx="6"/>
+      <text class="th" x="34" y="112">Agent (Claude Code)</text>
+      <text class="tm" x="34" y="130">sees no key and no mandate</text>
+
+      <path class="a-new" d="M105 144 V176" marker-end="url(#hn)"/>
+      <text class="tm" x="113" y="164">MCP</text>
+
+      <rect class="box-new" x="20" y="176" width="170" height="86" rx="6"/>
+      <text class="th" x="34" y="198">MCP shim</text>
+      <text class="t" x="34" y="218">agent key + run wallet</text>
+      <text class="t" x="34" y="236">narrowest mandate first</text>
+      <text class="tm" x="34" y="252">turns refusals into next steps</text>
+
+      <path class="a" d="M190 219 H320" marker-end="url(#h2)"/>
+      <text class="t" x="255" y="211" text-anchor="middle">POST /tools/call</text>
+      <text class="tm" x="255" y="235" text-anchor="middle">same shape as before</text>
+
+      <!-- gateway -->
+      <rect class="box" x="320" y="40" width="300" height="300" rx="6"/>
+      <text class="th" x="336" y="64">Gateway :8082</text>
+      <circle class="dot-new" cx="342" cy="86" r="3.5"/><text class="t" x="354" y="90">flood ceiling, before signature work</text>
+      <circle class="dot-same" cx="342" cy="108" r="3.5"/><text class="t" x="354" y="112">mandate: issuer, signature, time, revoked</text>
+      <circle class="dot-new" cx="342" cy="130" r="3.5"/><text class="t" x="354" y="134">parent and approver not revoked either</text>
+      <circle class="dot-same" cx="342" cy="152" r="3.5"/><text class="t" x="354" y="156">proof of possession (sig, nonce, ts)</text>
+      <circle class="dot-new" cx="342" cy="174" r="3.5"/><text class="t" x="354" y="178">deny, clearance, then one whole scope entry</text>
+      <circle class="dot-new" cx="342" cy="196" r="3.5"/><text class="t" x="354" y="200">audience, row cap, path normalised</text>
+      <circle class="dot-new" cx="342" cy="218" r="3.5"/><text class="t" x="354" y="222">run budget, per-key ceiling, safe counts</text>
+      <circle class="dot-new" cx="342" cy="240" r="3.5"/><text class="t" x="354" y="244">sign a tool grant, forward</text>
+      <circle class="dot-new" cx="342" cy="262" r="3.5"/><text class="t" x="354" y="266">strip to clearance, count new pupils</text>
+      <circle class="dot-new" cx="342" cy="284" r="3.5"/><text class="t" x="354" y="288">audit event written, or result withheld</text>
+      <text class="tn" x="336" y="320">answers grants.* and audit.* itself</text>
+
+      <!-- data servers -->
+      <path class="a-new" d="M620 90 H730" marker-end="url(#hn)"/>
+      <text class="tn" x="675" y="82" text-anchor="middle">tool grant</text>
+      <text class="tm" x="675" y="106" text-anchor="middle">30 s, one use</text>
+      <rect class="box" x="730" y="40" width="250" height="100" rx="6"/>
+      <text class="th" x="744" y="64">pupil-data (MCP)</text>
+      <text class="tn" x="744" y="86">checks the grant and the arguments</text>
+      <text class="tn" x="744" y="106">drops columns above the grant's level</text>
+      <text class="tm" x="744" y="126">same data, same tools</text>
+
+      <path class="a-new" d="M620 225 H730" marker-end="url(#hn)"/>
+      <text class="tn" x="675" y="217" text-anchor="middle">tool grant</text>
+      <rect class="box-new" x="730" y="170" width="250" height="110" rx="6"/>
+      <text class="th" x="744" y="194">slices (no published port)</text>
+      <text class="t" x="744" y="216">schools: level 1, public</text>
+      <text class="t" x="744" y="236">directory: level 2, ID and name only</text>
+      <text class="t" x="744" y="256">special: level 4, always held</text>
+      <text class="tm" x="744" y="272">each can only read its own level</text>
+
+      <!-- audit -->
+      <path class="a-new" d="M395 340 V372" marker-end="url(#hn)"/>
+      <rect class="box-new" x="320" y="372" width="150" height="52" rx="6"/>
+      <text class="th" x="334" y="394">audit.sqlite</text>
+      <text class="tm" x="334" y="412">signed, hash-chained</text>
+
+      <!-- issuer -->
+      <path class="a-new" d="M510 340 V470" marker-end="url(#hn)"/>
+      <text class="tn" x="504" y="450" text-anchor="end">scope request</text>
+      <path class="a-new" d="M580 470 V340" marker-end="url(#hn)"/>
+      <text class="tn" x="588" y="400">new mandate,</text>
+      <text class="tn" x="588" y="416">signed approval events</text>
+
+      <rect class="box-new" x="320" y="470" width="300" height="130" rx="6"/>
+      <text class="th" x="336" y="494">Issuer service :8083 (loopback)</text>
+      <text class="t" x="336" y="516">only holder of issuer_key.pem</text>
+      <text class="t" x="336" y="536">checks approver key and the person's ceiling</text>
+      <text class="t" x="336" y="556">mints a short-lived child of the base mandate</text>
+      <text class="t" x="336" y="576">reuses an approval within the same run</text>
+
+      <path class="a-new" d="M730 500 H620" marker-end="url(#hn)"/>
+      <text class="tn" x="675" y="492" text-anchor="middle">decision</text>
+      <rect class="box-new" x="730" y="470" width="250" height="56" rx="6"/>
+      <text class="th" x="744" y="492">Approval page (frontend :8081)</text>
+      <text class="t" x="744" y="512">the gateway's words, plus a user code</text>
+
+      <path class="a-new" d="M855 556 V526" marker-end="url(#hn)"/>
+      <rect class="box-new" x="730" y="556" width="250" height="52" rx="6"/>
+      <text class="th" x="744" y="578">Person (officer)</text>
+      <text class="t" x="744" y="596">approver key the agent never sees</text>
+    </svg>
+    </div>
+    <ul class="key">
+      <li><span class="k-same"></span>Present in the first commit</li>
+      <li><span class="k-new"></span>Added since</li>
+      <li><span class="k-risk"></span>Weak point in the first commit</li>
+    </ul>
+    <figcaption>Commit <code>521a378</code>. The new mandate travels back to the shim through <code>grants.status</code> and goes into its wallet. <code>cli issue</code> still mints base mandates on the machine that holds the issuer key (not drawn).</figcaption>
+  </figure>
+
+  <h2>What changed, and why</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Change</th><th>First commit</th><th>Now</th><th>Reasoning</th></tr></thead>
+    <tbody>
+      <tr><td>Scope checks<span class="q">Questions 3 to 5</span></td>
+        <td>No row limit. Paths compared as typed. The first scope entry that matched the tool decided the call.</td>
+        <td>At most 100 rows and no empty search (<code>TOO_MUCH</code>). Paths normalised before comparing. One entry must accept every argument it constrains.</td>
+        <td>The starter failed questions 3 to 5: a bulk export, a path spelled differently, and a mandate covering two schools. The eval is now 32/32 per the commit log.</td></tr>
+      <tr><td>Clearance and slices<span class="q">Questions 6 and 15</span></td>
+        <td>One server holding every column. Scope was the only limit.</td>
+        <td>A <code>clearance</code> claim (1 to 4) checked before scope. Three narrow servers, each able to read only one level.</td>
+        <td>A scope written too wide by mistake should not reach sensitive data. Checking clearance first means no shape of scope entries routes around it.</td></tr>
+      <tr><td>Graded pupil data<span class="q">Questions 6, 9, 15</span></td>
+        <td>Any allowed call returned whole rows, ethnicity and care status included.</td>
+        <td>Results stripped to the mandate's clearance (level 2 if it has none). Level 4 reads are held call by call. A search cannot select rows by a hidden value.</td>
+        <td>A live check found a no-clearance mandate returning a named pupil's special category data. A search for "ASIA" also returned exactly the pupils of that ethnicity after stripping.</td></tr>
+      <tr><td>Tool grants<span class="q">Gateway to tool hop</span></td>
+        <td>The MCP server answered anyone. Going to :8080 was a known hole.</td>
+        <td>Each forwarded call carries a grant bound to server, tool, exact arguments, schools, pupils, level and row cap. Servers refuse calls without one and filter their own output.</td>
+        <td>The gateway should not be a single point of failure. A gateway bug, or a caller who reaches a server directly, gets no more than one grant allows.</td></tr>
+      <tr><td>Scope requests and the issuer<span class="q">Questions 7, 9, 10</span></td>
+        <td><code>STEP_UP</code> returned 202 and stopped. The issuer key sat in the gateway container.</td>
+        <td>The agent asks through <code>grants.request</code>. A person (or a supervising agent within its own scope) approves. The issuer mints a child mandate for the same key. A held call goes through once.</td>
+        <td>A refusal needs a safe next step, or people over-grant up front. Moving the key out means a compromised gateway cannot mint. Children die with their parent and with the supervisor that approved them.</td></tr>
+      <tr><td>Fewer prompts<span class="q">Run reuse, batch release</span></td>
+        <td>Not applicable.</td>
+        <td>An approval still valid in the same run is reused. Up to 50 held calls can be released by one approval, each still once.</td>
+        <td>Asking a person again for what they approved minutes ago, or 25 times for one job, trains them to approve without reading.</td></tr>
+      <tr><td>Audit trail<span class="q">Questions 14 and 16</span></td>
+        <td>None. A comment marked where teams could add one.</td>
+        <td>One signed, hash-chained event per call, refusals included. An allowed result is withheld (503) if its event cannot be written. Reading the log is itself a mandated call.</td>
+        <td>The person who granted a mandate should be able to see what it received. Events hold identifiers and levels, never values, so the log is not a second copy of the data.</td></tr>
+      <tr><td>Safe counts<span class="q">Question 8</span></td>
+        <td><code>aggregate</code> counted rows and suppressed nothing.</td>
+        <td>Counts are of distinct pupils, groups under 10 are dropped, small counts hidden, everything rounded to 5. Identifier columns are refused.</td>
+        <td>A count filtered to one pupil named that pupil's ethnicity through the starter gateway.</td></tr>
+      <tr><td>Run budgets<span class="q">Question 11</span></td>
+        <td>Each call judged alone.</td>
+        <td>Per-mandate budgets for distinct pupils and calls, shared by child mandates. Ceilings per key and per source. Alerts for mandates with no budget.</td>
+        <td>Many small allowed calls add up to a bulk export. The source ceiling runs before signature work so a forged flood stays cheap to refuse.</td></tr>
+      <tr><td>Deployment hardening<span class="q">Day 2</span></td>
+        <td>30 s grace on expiry. Demo routes always on. All ports published. Malformed mandates could raise a 500.</td>
+        <td>Expired means expired. Demo off unless enabled. Only the gateway is public. Anything unparseable is a <code>MANDATE_MALFORMED</code> denial.</td>
+        <td>The demo mints and revokes with no login, and a leaked issuer key costs 50 points on Day 2.</td></tr>
+      <tr><td>MCP shim and wallet</td>
+        <td>The agent held its key and mandate and signed requests itself.</td>
+        <td>A local MCP server holds both, picks the narrowest mandate that covers a call, and keeps approved mandates out of the agent's view.</td>
+        <td>Claude Code had no way into the scope-request loop, and an agent that never sees a credential cannot leak it.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>What stayed the same</h2>
+  <ul class="plain">
+    <li>The <code>POST /tools/call</code> body and its signing input.</li>
+    <li>The mandate as an EdDSA JWT bound to the agent's key, with the trusted list and signed status list for revocation.</li>
+    <li>The order of the first three checks: mandate, proof of possession, then scope.</li>
+    <li>The synthetic data and the demo walkthrough.</li>
+  </ul>
+
+  <h2>Still open in the current design</h2>
+  <ul class="plain">
+    <li>An approver is a key file per person, and their ceiling is a JSON file. Neither is SSO or a real entitlement source.</li>
+    <li>Pupil IDs are the same on every server, so a name from <code>directory</code> can be joined to an approved <code>special</code> record.</li>
+    <li>The nonce replay set is in memory, per process.</li>
+    <li>The issuer and <code>cli issue</code> both write <code>status_list.json</code> with no lock between them.</li>
+    <li>Path normalisation is lexical, which holds only while the data directory has no symlinks.</li>
+    <li>One approval is enough even for special category data or a write, and only the principal can give it.</li>
+  </ul>
+</main>
+</body>
+</html>

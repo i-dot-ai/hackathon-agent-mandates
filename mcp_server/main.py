@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 from fastmcp.utilities.lifespan import combine_lifespans
 from mcp_server.api.routes_mcp import mcp
+from tool_grants import protect
 
 import uvicorn
 from fastapi import FastAPI
@@ -59,7 +60,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
-app.mount("/mcp", mcp_app)
+app.mount("/mcp", protect(mcp_app, "pupil-data"))  # every tools/call needs a gateway tool grant
 
 
 # Not under /mcp: the mount above would swallow it.

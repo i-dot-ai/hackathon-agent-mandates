@@ -56,6 +56,7 @@ gateway = [
     "pyjwt>=2.9.0",
     "cryptography>=42",
     "litellm>=1.95",
+    "pyyaml>=6",
 ]
 synth = [
     "pandas>=2.2",
@@ -139,11 +140,15 @@ exclude = ["out/*"]
 ignore = ["COM812", "DJ001", "RET505", "RET508", "PLR0913"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["mcp_server", "frontend", "gateway"]
+known-first-party = ["mcp_server", "frontend", "gateway", "tool_grants", "data_slices"]
 
 [tool.ruff.lint.per-file-ignores]
 "gateway/cli.py" = ["T201"]
 "gateway/eval.py" = ["T201", "PLR2004"]
+"gateway/tests/parity_eval.py" = ["T201"]
+# reason codes are the error message (GrantError("GRANT_SCOPE", ...)), so EM101 and TRY301 fight the design
+"tool_grants/*" = ["EM101", "TRY003", "TRY301", "C901"]
+"issuer/*" = ["EM101", "TRY003", "TRY301", "N818"]
 "tests/*" = ["S101", "S106", "PLR0913", "PLR0915", "PLR2004", "TD003", "S311"]
 "*/tests/*" = ["S101", "S106", "PLR0913", "PLR0915", "PLR2004", "TD003"]
 "*/tests_playwright/*" = ["S101", "S106", "PLR0913", "PLR2004", "TD003"]

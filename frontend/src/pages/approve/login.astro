@@ -1,0 +1,52 @@
+---
+// One-time login link from `cli approver-login`: the token is signed with the person's approver key. The issuer
+// checks it and returns a short session, kept in an HTTP-only cookie the browser can't read.
+import Layout from "@layouts/Layout.astro";
+
+const token = Astro.url.searchParams.get("token") ?? "";
+const next = Astro.url.searchParams.get("next") ?? "";
+const safeNext = /^\/approve\/sr_[A-Za-z0-9_-]{6,40}$/.test(next) ? next : null;
+let error = "";
+
+if (token) {
+  const issuer = process.env.ISSUER_URL ?? "http://localhost:8083";
+  const res = await fetch(`${issuer}/approver/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (res.ok && body.session) {
+    Astro.cookies.set("approver_session", body.session, {
+      httpOnly: true,
+      sameSite: "strict",
+      secure: Astro.url.protocol === "https:",
+      path: "/api/approve",
+      expires: new Date(body.expires * 1000),
+    });
+    if (safeNext) return Astro.redirect(safeNext);
+  } else {
+    error = body.detail || body.error || "This login link didn't work.";
+  }
+} else {
+  error = "This page needs the login link printed by `cli approver-login`.";
+}
+---
+
+<Layout>
+  <div class="govuk-width-container govuk-main-wrapper" id="main-content">
+    <h1 class="govuk-heading-l">Approver sign-in</h1>
+    {error ? (
+      <div class="govuk-error-summary" role="alert">
+        <h2 class="govuk-error-summary__title">You're not signed in</h2>
+        <p class="govuk-body">{error}</p>
+        <p class="govuk-body">
+          Run <code>uv run python -m gateway.cli approver-login --principal &lt;you&gt; --approver-key &lt;your key&gt;
+          --request &lt;request ID&gt;</code> and open the link it prints. Each link works once, for 5 minutes.
+        </p>
+      </div>
+    ) : (
+      <p class="govuk-body">You're signed in as an approver. Open the approval link the agent gave you.</p>
+    )}
+  </div>
+</Layout>

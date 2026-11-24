@@ -7,6 +7,8 @@ from pathlib import Path
 
 from fastmcp import FastMCP
 
+from tool_grants import granted, level_function
+
 DATA_ROOT = Path(__file__).resolve().parents[1] / "data"
 SYNTH_ROOT = DATA_ROOT / "synthetic"
 WRITES_PATH = DATA_ROOT / "writes" / "corrections.jsonl"
@@ -14,9 +16,12 @@ TERM_ORDER = {"AUT": 0, "SPR": 1, "SUM": 2}
 YEAR_GROUP_AGE = {10: "14", 11: "15"}  # AgeAtStartOfAcademicYear for each year group
 
 mcp = FastMCP("MCP Access", version="0.1.0")
+# every tool checks its arguments against, and filters its output by, the call's tool grant
+GRANTED = granted(level_function(SYNTH_ROOT / "synthetic_manifest.json"))
 
 
 @mcp.tool
+@GRANTED
 def search(query: str, urn: str | None = None, limit: int = 100) -> list[dict]:
     """
     Case-insensitive text search across the rows of the synthetic school census.
@@ -39,6 +44,7 @@ def search(query: str, urn: str | None = None, limit: int = 100) -> list[dict]:
 
 
 @mcp.tool
+@GRANTED
 def get(path: str, limit: int = 100) -> dict | list:
     """
     Return the contents of one data file, by path relative to the data directory.
@@ -57,6 +63,7 @@ def get(path: str, limit: int = 100) -> dict | list:
 
 
 @mcp.tool
+@GRANTED
 def aggregate(table: str, group_by: list[str], measure: str, where: dict[str, str] | None = None) -> list[dict]:
     """
     Group a synthetic CSV table and count rows: one result row per group with "total" (rows in the group) and
@@ -91,6 +98,7 @@ def aggregate(table: str, group_by: list[str], measure: str, where: dict[str, st
 
 
 @mcp.tool
+@GRANTED
 def classification() -> dict:
     """
     The PII level of every table and column, from the manifest: "levels" names each level (1 public to
@@ -118,6 +126,7 @@ def _latest(pupil_id: str, urn: str) -> dict | None:
 
 
 @mcp.tool
+@GRANTED
 def roster(urn: str, year_group: int, academic_year: str = "2023/24", term: str = "SPR") -> list[dict]:
     """
     The pupils in one year group at one school, by pseudo ID and display name.
@@ -141,6 +150,7 @@ def roster(urn: str, year_group: int, academic_year: str = "2023/24", term: str 
 
 
 @mcp.tool
+@GRANTED
 def pupil(pupil_id: str, urn: str) -> dict:
     """
     One pupil's full record: their latest census row (ethnicity and care status included), display name and
@@ -156,9 +166,13 @@ def pupil(pupil_id: str, urn: str) -> dict:
 
 
 @mcp.tool
+@GRANTED
 def draft(urn: str, pupil_ids: list[str], kind: str = "absence") -> list[dict]:
     """
     Draft a letter home for each pupil currently at `urn`; pupils at other schools are skipped.
+
+    Put every pupil in one call: a draft is held for a person's approval, and one call with all the pupils is one
+    approval, where one call per pupil is one approval each.
 
     Args:
         urn: school URN the letters are from.
@@ -184,6 +198,7 @@ def draft(urn: str, pupil_ids: list[str], kind: str = "absence") -> list[dict]:
 
 
 @mcp.tool
+@GRANTED
 def write(pupil_id: str, urn: str, column: str, value: str, reason: str) -> dict:
     """
     Correct one field of a pupil's latest census row. The synthetic data is not changed: the correction is

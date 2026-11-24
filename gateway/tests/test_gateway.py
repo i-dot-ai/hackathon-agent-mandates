@@ -91,12 +91,13 @@ def test_path_spellings(gw):
 
 def test_any_scope_entry_may_allow_but_entries_do_not_mix():
     def check(tool="t", **arguments):
-        req = Request("s", tool, arguments, mandate="", nonce="", ts=0, sig="")
+        # pupil-data: a server with a data level that mandates without clearance may still call
+        req = Request("pupil-data", tool, arguments, mandate="", nonce="", ts=0, sig="")
         scope = [
-            {"server": "s", "tools": ["t"], "constraints": {"urn": ["SCH01"], "path": ["a"]}},
-            {"server": "s", "tools": ["t"], "constraints": {"urn": ["SCH02"], "path": ["b"]}},
+            {"server": "pupil-data", "tools": ["t"], "constraints": {"urn": ["SCH01"], "path": ["a"]}},
+            {"server": "pupil-data", "tools": ["t"], "constraints": {"urn": ["SCH02"], "path": ["b"]}},
         ]
-        return check_request(req, scope, deny=[], step_up_patterns=[])[:2]
+        return check_request(req, scope, deny=[], step_up_patterns=[], claims={})[:2]
 
     assert check(urn="SCH01", path="a") == ("ALLOW", "IN_SCOPE")
     assert check(urn="SCH02", path="b") == ("ALLOW", "IN_SCOPE")  # the second entry is tried
@@ -136,7 +137,15 @@ def test_tampered_mandate_is_denied(gw):
     assert (r.status_code, r.json()["decision"]["reason_code"]) == (403, "SIG_INVALID")
 
 
-def test_demo_walkthrough(gw):
+def test_demo_is_off_by_default(gw):
+    client, _, _ = gw
+    assert client.post("/demo/mandate", json={}).status_code == 404
+    assert client.post("/demo/revoke", json={"idx": 0}).status_code == 404
+    assert client.get("/demo/issuer").status_code == 404
+
+
+def test_demo_walkthrough(gw, monkeypatch):
+    monkeypatch.setenv("GATEWAY_ENABLE_DEMO", "1")
     client, _, _ = gw
     m = client.post("/demo/mandate", json={"urn": "SCH01"}).json()
     assert m["header"]["typ"] == "mandate+jwt"
@@ -193,21 +202,28 @@ def test_issue_with_claims_of_your_own(gw, tmp_path, capsys):
     out = tmp_path / "m.jwt"
     issue = ["--state", str(state), "issue", "--agent-key", str(state / "agent.pem"), "-o", str(out)]
 
-    cli.main([*issue, "--claims", '{"clearance": 2}'])
+    def search_with(mandate):
+        body = cli.sign_request(
+            priv_from_pem((state / "agent.pem").read_bytes()),
+            server="pupil-data",
+            tool="search",
+            arguments={"query": "SPR", "urn": "SCH01"},
+            mandate=mandate,
+        )
+        r, _ = call(client, "search", body=body)
+        return r.status_code, r.json()["decision"]["reason_code"]
+
+    cli.main([*issue, "--claims", '{"team_note": "letters run"}'])
     capsys.readouterr()
     cli.main(["decode", str(out)])
-    assert json.loads(capsys.readouterr().out)["clearance"] == 2
+    assert json.loads(capsys.readouterr().out)["team_note"] == "letters run"
+    # the gateway ignores a claim it does not read, so the mandate still works
+    assert search_with(out.read_text()) == (200, "IN_SCOPE")
 
-    # the starter gateway ignores a claim it does not read, so the mandate still works
-    body = cli.sign_request(
-        priv_from_pem((state / "agent.pem").read_bytes()),
-        server="pupil-data",
-        tool="search",
-        arguments={"query": "SPR", "urn": "SCH01"},
-        mandate=out.read_text(),
-    )
-    r, _ = call(client, "search", body=body)
-    assert (r.status_code, r.json()["decision"]["decision"]) == (200, "ALLOW")
+    # clearance is read (add-interface-slices); pupil-data is graded (add-graded-pupil-data): clearance 2 is
+    # served, stripped to level 2
+    cli.main([*issue, "--claims", '{"clearance": 2}'])
+    assert search_with(out.read_text()) == (200, "IN_SCOPE")
 
     with pytest.raises(ValueError, match="scope"):
         cli.main([*issue, "--claims", '{"scope": []}'])
@@ -225,3 +241,12 @@ def test_eval_set_passes_against_template_gateway(gw, tmp_path):
     # questions 3 to 5 are the teams' build work, so only the starter's questions 0 to 2 must pass
     assert [line for ok, line in results if not ok and line[:2] in {"Q0", "Q1", "Q2"}] == []
     assert len(results) == len(ev.VALID) + len(ev.INVALID) + len(ev.BUILD)
+
+
+def test_expired_means_expired(gw, monkeypatch):
+    """No grace on exp: one second past expiry is EXPIRED, however small the clock skew allowance."""
+    client, call, state = gw
+    mandate_claims = json.loads(cli.b64u_decode((state / "mandate.jwt").read_text().split(".")[1]))
+    monkeypatch.setattr("gateway.lib.gateway_verify.time.time", lambda: mandate_claims["exp"] + 1)
+    r, _ = call(client, "search", query="P0004", urn="SCH01")
+    assert (r.status_code, r.json()["decision"]["reason_code"]) == (403, "EXPIRED")
